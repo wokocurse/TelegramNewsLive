@@ -677,20 +677,20 @@ async function loadPosts(col) {
 
   try {
     const limit = getPostsPerCol();
-    const posts = await apiFetch(col.channel, limit);
+
+    const posts = await apiFetch(col.channel, 10); // fetch extra safety buffer
 
     if (!posts.length) {
-      col.feedEl.innerHTML = `<div class="post-loading">No posts found</div>`;
+      col.feedEl.innerHTML = `<div class="post-loading">No posts</div>`;
       setDot(col, 'error');
       return;
     }
 
-    // ✅ newest → oldest (keep only limit)
+    // ✅ ALWAYS TAKE LATEST 3
     col.posts = posts.slice(0, limit);
 
     col.feedEl.innerHTML = '';
 
-    // ✅ render newest at TOP
     col.posts.forEach(post => {
       col.feedEl.appendChild(buildCard(post));
     });
@@ -699,7 +699,6 @@ async function loadPosts(col) {
 
   } catch (err) {
     console.error(err);
-    col.feedEl.innerHTML = `<div class="post-loading" style="color:#e05252">Failed — check channel name</div>`;
     setDot(col, 'error');
   }
 }
@@ -721,35 +720,29 @@ async function refreshCol(col) {
   try {
     const limit = getPostsPerCol();
 
-    const latest = await apiFetch(col.channel, limit + 3);
+    const latest = await apiFetch(col.channel, 10);
     if (!latest.length) return;
 
-    // existing posts
-    const existingIds = new Set(col.posts.map(p => p.id));
+    // ✅ ALWAYS TAKE LATEST WINDOW
+    const newWindow = latest.slice(0, limit);
 
-    // find new ones
-    const newPosts = latest.filter(p => !existingIds.has(p.id));
+    const oldIds = col.posts.map(p => p.id);
+    const newIds = newWindow.map(p => p.id);
 
-    if (!newPosts.length) {
+    // no change → skip
+    if (JSON.stringify(oldIds) === JSON.stringify(newIds)) {
       setDot(col, 'ok');
       return;
     }
 
-    // ✅ insert new posts at TOP
-    newPosts.forEach(post => {
-      col.feedEl.prepend(buildCard(post, true));
+    // 🔥 FULL REPLACE (THIS FIXES EVERYTHING)
+    col.posts = newWindow;
+
+    col.feedEl.innerHTML = '';
+
+    newWindow.forEach(post => {
+      col.feedEl.appendChild(buildCard(post, true));
     });
-
-    // ✅ update state
-    col.posts = [...newPosts, ...col.posts];
-
-    // ✅ trim to limit (REMOVE OLDEST FROM BOTTOM)
-    while (col.posts.length > limit) {
-      col.posts.pop();
-
-      const last = col.feedEl.lastElementChild;
-      if (last) last.remove();
-    }
 
     setDot(col, 'ok');
 
