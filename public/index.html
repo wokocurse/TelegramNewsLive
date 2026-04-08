@@ -337,28 +337,64 @@
     margin-bottom: 8px;
   }
 
-  .tg-text {
-    white-space: pre-wrap;
-  }
+/* TEXT */
+.tg-text {
+  margin-top: 6px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
 
-  .tg-header {
-  font-size: 13px;
-  font-weight: 600;
-  color: #6ab7ff;
+  .tg-msg {
+  background: #1f1f1f;
+  border-radius: 14px;
+  padding: 10px;
+  color: #eaeaea;
+  font-size: 14px;
+}
+
+.tg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
   cursor: pointer;
+}
+
+.tg-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.tg-name {
+  font-weight: 600;
+  color: #6ab7ff;
+}
+
+.tg-reactions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tg-reaction {
+  background: #2a2a2a;
+  padding: 3px 6px;
+  border-radius: 12px;
+  font-size: 12px;
 }
 
 .tg-header:hover {
   text-decoration: underline;
 }
 
+/* FOOTER */
 .tg-footer {
   display: flex;
   justify-content: space-between;
+  margin-top: 6px;
   font-size: 11px;
-  color: #888;
-  margin-top: 8px;
+  color: #aaa;
 }
 
 .tg-channel {
@@ -523,9 +559,43 @@ async function apiFetch(channel, limit) {
 // No color filters — the white card on a dark background
 // is intentional and matches how Telegram Desktop looks.
 // ─────────────────────────────────────────────────────────────
-function buildCard(post, isNew = false, channelName = '') {
+function buildCard(post, isNew = false) {
   const card = document.createElement('div');
-  card.className = 'post-card' + (isNew ? ' is-new' : ' entering');
+  card.className = 'post-card tg-msg' + (isNew ? ' is-new' : '');
+
+  const date = post.date
+    ? new Date(post.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+
+  const reactions = (post.reactions || []).map(r => `
+    <span class="tg-reaction">${r}</span>
+  `).join('');
+
+  card.innerHTML = `
+    <!-- HEADER -->
+    <div class="tg-header" onclick="window.open('${post.link}')">
+      ${post.avatar ? `<img src="${post.avatar}" class="tg-avatar"/>` : ''}
+      <span class="tg-name">${post.channelName || ''}</span>
+    </div>
+
+    <!-- MEDIA -->
+    ${renderMedia(post.images)}
+
+    <!-- TEXT -->
+    ${post.text ? `<div class="tg-text">${post.text}</div>` : ''}
+
+    <!-- REACTIONS -->
+    ${reactions ? `<div class="tg-reactions">${reactions}</div>` : ''}
+
+    <!-- FOOTER -->
+    <div class="tg-footer">
+      <span>${post.views || ''} 👁</span>
+      <span>${date}</span>
+    </div>
+  `;
+
+  return card;
+}
 
 function renderMedia(images = []) {
   if (!images.length) return '';
@@ -549,8 +619,7 @@ function renderMedia(images = []) {
       </div>
     </div>
   `;
-}
-
+  
   const date = post.date
     ? new Date(post.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -651,8 +720,9 @@ async function refreshCol(col) {
   try {
     const limit = getPostsPerCol();
     // Fetch a few extra so we don't miss multiple rapid posts
-  const incomingLatest = await apiFetch(col.channel, limit + 5);
-  if (!incomingLatest.length) return;
+    const incomingLatest = await apiFetch(col.channel, limit + 5);
+
+    if (!incomingLatest.length) return;
 
     // IDs we already show
     const knownSet = new Set(col.posts.map(p => p.id));
