@@ -1,0 +1,13 @@
+{
+  "name": "tgfeed",
+  "version": "1.0.0",
+  "description": "Multi-channel Telegram feed reader",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "devDependencies": {
+    "vercel": "^37.0.0"
+  }
+}

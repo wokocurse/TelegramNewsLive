@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TG Feed — Multi-channel Telegram Reader</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.15);
+      --text: #f0f0f0;
+      --text2: #999;
+      --text3: #666;
+      --accent: #2ca5e0;
+      --accent2: #1a7ab5;
+      --danger: #e05252;
+      --success: #4caf84;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOOLBAR ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #toolbar h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+      white-space: nowrap;
+    }
+
+    .tb-sep { flex: 1; min-width: 8px; }
+
+    .tb-label {
+      font-size: 12px;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    select, input[type=number] {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 5px 8px;
+      font-size: 12px;
+      outline: none;
+    }
+    select:focus, input[type=number]:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 5px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: #333; border-color: var(--border2); }
+    .btn.accent { border-color: var(--accent); color: var(--accent); }
+    .btn.accent:hover { background: rgba(44,165,224,0.1); }
+    .btn.danger { border-color: var(--danger); color: var(--danger); }
+    .btn.danger:hover { background: rgba(224,82,82,0.1); }
+
+    /* ── COLUMNS AREA ── */
+    #columns-area {
+      display: flex;
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+    }
+
+    .col-wrap {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+      scroll-snap-align: start;
+    }
+
+    .col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    .col-info { flex: 1; min-width: 0; }
+    .col-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .col-meta {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 2px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .col-status {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text3);
+      flex-shrink: 0;
+    }
+    .col-status.ok { background: var(--success); }
+    .col-status.loading { background: var(--accent); animation: pulse 1s infinite; }
+    .col-status.error { background: var(--danger); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .col-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    .col-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      border-radius: var(--radius-sm);
+      padding: 3px 7px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .col-btn:hover { border-color: var(--border2); color: var(--text); }
+    .col-btn.ai-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .col-btn.del-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── FEED ── */
+    .col-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .col-feed::-webkit-scrollbar { width: 4px; }
+    .col-feed::-webkit-scrollbar-track { background: transparent; }
+    .col-feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .post-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+    .post-wrap:hover { border-color: var(--border2); }
+
+    .post-loading {
+      padding: 20px 16px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    /* Telegram widget override */
+    .tgme_widget_message_bubble { background: transparent !important; }
+
+    /* ── AI SUMMARY PANEL ── */
+    .ai-panel {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      font-size: 12px;
+      flex-shrink: 0;
+      display: none;
+    }
+    .ai-panel.open { display: block; }
+    .ai-panel-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ai-summary-text {
+      color: var(--text2);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .ai-loading { color: var(--text3); font-style: italic; }
+
+    /* ── ADD CHANNEL MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 320px;
+      max-width: calc(100vw - 32px);
+    }
+    .modal-box h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+    .field { margin-bottom: 14px; }
+    .field label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
+    .field input[type=text], .field input[type=number] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .field input:focus { border-color: var(--accent); outline: none; }
+    .field small { font-size: 11px; color: var(--text3); margin-top: 4px; display: block; }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .modal-actions button { flex: 1; padding: 9px; font-size: 13px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); transition: all 0.15s; }
+    .modal-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .modal-actions button.primary:hover { background: var(--accent2); }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text3);
+      font-size: 13px;
+      gap: 8px;
+      padding: 20px;
+    }
+    .empty-state .icon { font-size: 32px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 480px) {
+      #toolbar { padding: 8px 10px; gap: 6px; }
+      .tb-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>📡 TG Feed</h1>
+  <span class="tb-sep"></span>
+  <span class="tb-label">Posts:</span>
+  <input type="number" id="posts-per-col" value="3" min="1" max="10" style="width:50px" title="Posts per column">
+  <span class="tb-label">Width:</span>
+  <select id="col-width" title="Column width">
+    <option value="100">Full</option>
+    <option value="70">70%</option>
+    <option value="50" selected>50%</option>
+    <option value="33">33%</option>
+    <option value="25">25%</option>
+  </select>
+  <button class="btn" id="refresh-btn" title="Refresh all columns">↻ Refresh</button>
+  <button class="btn accent" id="add-col-btn">+ Channel</button>
+</div>
+
+<div id="columns-area">
+  <div class="empty-state" id="empty-hint" style="display:none">
+    <div class="icon">📡</div>
+    <div>No channels yet — click <strong>+ Channel</strong> to add one</div>
+  </div>
+</div>
+
+<!-- Add channel modal -->
+<div id="modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h2>Add a channel</h2>
+    <div class="field">
+      <label>Channel username</label>
+      <input id="modal-channel" type="text" placeholder="e.g. topor">
+      <small>The part after t.me/ (no @ needed)</small>
+    </div>
+    <div class="field">
+      <label>Label (optional)</label>
+      <input id="modal-label" type="text" placeholder="e.g. Breaking News">
+    </div>
+    <div class="modal-actions">
+      <button id="modal-cancel">Cancel</button>
+      <button class="primary" id="modal-add">Add column</button>
+    </div>
+  </div>
+</div>
+
+<!-- Telegram widget JS loaded once -->
+<script async src="https://telegram.org/js/telegram-widget.js?23"></script>
+
+<script>
+// ── CONFIG ──
+// When deployed on Vercel, API_BASE will be '' (same origin).
+// For local dev with vercel dev, also ''. Override if needed.
+const API_BASE = '';
+
+const DEFAULT_CHANNELS = [
+  { channel: 'topor',    label: 'Топор' },
+  { channel: 'cybers',   label: 'КиберТопор' },
+  { channel: 'ecotopor', label: 'ЭкоТопор' },
+];
+
+let columns = [];
+let colIdCounter = 0;
+
+// ── UTILS ──
+function getColWidth() {
+  const pct = parseInt(document.getElementById('col-width').value);
+  const areaW = document.getElementById('columns-area').offsetWidth || window.innerWidth;
+  return Math.max(300, Math.floor(areaW * pct / 100));
+}
+
+function getPostsPerCol() {
+  return Math.max(1, Math.min(10, parseInt(document.getElementById('posts-per-col').value) || 3));
+}
+
+function setStatus(col, state) {
+  const dot = col.el?.querySelector('.col-status');
+  if (dot) {
+    dot.className = 'col-status ' + state;
+  }
+}
+
+// ── FETCH CHANNEL DATA via our Vercel proxy ──
+async function fetchChannelData(channel, limit) {
+  const url = `${API_BASE}/api/channel?channel=${encodeURIComponent(channel)}&limit=${limit}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── RENDER A SINGLE TELEGRAM EMBED ──
+function renderTelegramPost(channel, postId) {
+  const wrap = document.createElement('div');
+  wrap.className = 'post-wrap';
+  wrap.dataset.postId = postId;
+
+  const loading = document.createElement('div');
+  loading.className = 'post-loading';
+  loading.textContent = '⏳ Loading post…';
+  wrap.appendChild(loading);
+
+  // Use a div that the Telegram widget will latch onto
+  const tgDiv = document.createElement('div');
+  tgDiv.innerHTML = `<script async src="https://telegram.org/js/telegram-widget.js?23"
+    data-telegram-post="${channel}/${postId}"
+    data-width="100%"
+    data-userpic="false"
+    data-color="2CA5E0"><\/script>`;
+
+  // Re-execute the script manually since innerHTML doesn't run scripts
+  const scriptEl = document.createElement('script');
+  scriptEl.async = true;
+  scriptEl.src = 'https://telegram.org/js/telegram-widget.js?23';
+  scriptEl.setAttribute('data-telegram-post', `${channel}/${postId}`);
+  scriptEl.setAttribute('data-width', '100%');
+  scriptEl.setAttribute('data-userpic', 'false');
+  scriptEl.setAttribute('data-color', '2CA5E0');
+  scriptEl.onload = () => {
+    setTimeout(() => { if (loading.parentNode) loading.style.display = 'none'; }, 800);
+  };
+  scriptEl.onerror = () => {
+    loading.textContent = `Post #${postId} unavailable`;
+    loading.style.color = 'var(--text3)';
+  };
+
+  wrap.appendChild(scriptEl);
+  return wrap;
+}
+
+// ── CREATE A COLUMN ──
+function createColumn(cfg) {
+  const id = ++colIdCounter;
+  const colData = { id, channel: cfg.channel, label: cfg.label || cfg.channel, el: null, feedEl: null, postIds: [], texts: [] };
+  columns.push(colData);
+
+  // Column wrapper
+  const wrap = document.createElement('div');
+  wrap.className = 'col-wrap';
+  wrap.dataset.colId = id;
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'col-header';
+  header.innerHTML = `
+    <div class="col-info">
+      <div class="col-title">${colData.label}</div>
+      <div class="col-meta">
+        <span class="col-status loading"></span>
+        <span class="col-channel-name">@${colData.channel}</span>
+        <span class="col-subs"></span>
+      </div>
+    </div>
+    <div class="col-actions">
+      <button class="col-btn ai-btn" data-action="ai" data-id="${id}" title="AI summary">✦ AI</button>
+      <button class="col-btn" data-action="refresh" data-id="${id}" title="Refresh">↻</button>
+      <button class="col-btn del-btn" data-action="remove" data-id="${id}" title="Remove">✕</button>
+    </div>`;
+  wrap.appendChild(header);
+
+  // AI panel (hidden by default)
+  const aiPanel = document.createElement('div');
+  aiPanel.className = 'ai-panel';
+  aiPanel.innerHTML = `
+    <div class="ai-panel-title">
+      <span>✦ AI Summary</span>
+      <button class="col-btn" data-action="close-ai" data-id="${id}" style="padding:1px 5px;font-size:10px">✕</button>
+    </div>
+    <div class="ai-summary-text ai-loading">Click ✦ AI to generate a summary of recent posts…</div>`;
+  wrap.appendChild(aiPanel);
+
+  // Feed
+  const feed = document.createElement('div');
+  feed.className = 'col-feed';
+  wrap.appendChild(feed);
+
+  colData.el = wrap;
+  colData.feedEl = feed;
+  colData.aiPanel = aiPanel;
+
+  updateColWidth(wrap);
+
+  // Remove empty state hint if visible
+  document.getElementById('empty-hint').style.display = 'none';
+  document.getElementById('columns-area').appendChild(wrap);
+
+  loadPosts(colData);
+  return colData;
+}
+
+// ── LOAD POSTS FOR A COLUMN ──
+async function loadPosts(colData) {
+  const limit = getPostsPerCol();
+  setStatus(colData, 'loading');
+  colData.feedEl.innerHTML = `<div class="post-loading">Loading @${colData.channel}…</div>`;
+
+  try {
+    const data = await fetchChannelData(colData.channel, limit);
+    colData.postIds = data.postIds || [];
+    colData.texts = data.textSnippets || [];
+
+    // Update column metadata
+    const titleEl = colData.el.querySelector('.col-title');
+    if (titleEl && data.title) titleEl.textContent = data.title;
+
+    const subsEl = colData.el.querySelector('.col-subs');
+    if (subsEl && data.subscribers) subsEl.textContent = `· ${Number(data.subscribers).toLocaleString()} subs`;
+
+    // Render posts
+    colData.feedEl.innerHTML = '';
+    if (colData.postIds.length === 0) {
+      colData.feedEl.innerHTML = `<div class="post-loading">No posts found. The channel may be private or the username incorrect.</div>`;
+      setStatus(colData, 'error');
+      return;
+    }
+
+    colData.postIds.forEach(pid => {
+      colData.feedEl.appendChild(renderTelegramPost(colData.channel, pid));
+    });
+
+    setStatus(colData, 'ok');
+
+  } catch (err) {
+    console.error('loadPosts error:', err);
+    colData.feedEl.innerHTML = `<div class="post-loading" style="color:var(--danger)">Failed to load — check channel name or try again</div>`;
+    setStatus(colData, 'error');
+  }
+}
+
+// ── AI SUMMARY ──
+async function generateSummary(colData) {
+  const aiPanel = colData.aiPanel;
+  const textEl = aiPanel.querySelector('.ai-summary-text');
+
+  aiPanel.classList.add('open');
+  textEl.className = 'ai-summary-text ai-loading';
+  textEl.textContent = '⏳ Generating summary…';
+
+  if (!colData.texts || colData.texts.length === 0) {
+    textEl.textContent = 'No post text available to summarize. Refresh the column first.';
+    textEl.className = 'ai-summary-text';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/summarize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: colData.label, texts: colData.texts })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      if (data.error.includes('no GEMINI_API_KEY')) {
+        textEl.textContent = '⚠ AI summarization is not configured yet.\nAdd GEMINI_API_KEY to your Vercel environment variables.\nGet a free key at: aistudio.google.com';
+      } else {
+        textEl.textContent = `Error: ${data.error}`;
+      }
+    } else {
+      textEl.textContent = data.summary;
+    }
+    textEl.className = 'ai-summary-text';
+
+  } catch (err) {
+    textEl.textContent = 'Network error — is the API deployed?';
+    textEl.className = 'ai-summary-text';
+  }
+}
+
+// ── COLUMN WIDTH ──
+function updateColWidth(el) {
+  el.style.width = getColWidth() + 'px';
+}
+
+function updateAllWidths() {
+  columns.forEach(col => updateColWidth(col.el));
+}
+
+// ── REMOVE COLUMN ──
+function removeColumn(id) {
+  const col = columns.find(c => c.id === id);
+  if (!col) return;
+  col.el.remove();
+  columns = columns.filter(c => c.id !== id);
+  if (columns.length === 0) {
+    document.getElementById('empty-hint').style.display = 'flex';
+  }
+}
+
+// ── EVENT DELEGATION ──
+document.getElementById('columns-area').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = parseInt(btn.dataset.id);
+  const col = columns.find(c => c.id === id);
+
+  switch (btn.dataset.action) {
+    case 'remove':   removeColumn(id); break;
+    case 'refresh':  col && loadPosts(col); break;
+    case 'ai':       col && generateSummary(col); break;
+    case 'close-ai': col && col.aiPanel.classList.remove('open'); break;
+  }
+});
+
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  columns.forEach(col => loadPosts(col));
+});
+
+document.getElementById('col-width').addEventListener('change', updateAllWidths);
+document.getElementById('posts-per-col').addEventListener('change', () => {
+  columns.forEach(col => loadPosts(col));
+});
+
+// ── MODAL ──
+document.getElementById('add-col-btn').addEventListener('click', () => {
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modal-channel').focus();
+});
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('modal').style.display = 'none';
+});
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) {
+    document.getElementById('modal').style.display = 'none';
+  }
+});
+
+document.getElementById('modal-add').addEventListener('click', () => {
+  const channel = document.getElementById('modal-channel').value.trim().replace('@', '').toLowerCase();
+  const label = document.getElementById('modal-label').value.trim();
+  if (!channel) { document.getElementById('modal-channel').focus(); return; }
+
+  createColumn({ channel, label: label || channel });
+  document.getElementById('modal').style.display = 'none';
+  document.getElementById('modal-channel').value = '';
+  document.getElementById('modal-label').value = '';
+});
+
+document.getElementById('modal-channel').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('modal-add').click();
+});
+
+// ── RESIZE ──
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(updateAllWidths, 100);
+});
+
+// ── INIT ──
+DEFAULT_CHANNELS.forEach(cfg => createColumn(cfg));
+</script>
+</body>
+</html>
