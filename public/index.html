@@ -564,7 +564,10 @@ function buildCard(post, isNew = false) {
   card.className = 'post-card tg-msg' + (isNew ? ' is-new' : '');
 
   const date = post.date
-    ? new Date(post.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ? new Date(post.date).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     : '';
 
   const reactions = (post.reactions || []).map(r => `
@@ -619,7 +622,7 @@ function renderMedia(images = []) {
       </div>
     </div>
   `;
-  
+
   const date = post.date
     ? new Date(post.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -671,33 +674,31 @@ function removeCardAnimated(card) {
 // ─────────────────────────────────────────────────────────────
 async function loadPosts(col) {
   setDot(col, 'loading');
-  col.feedEl.innerHTML = `<div class="post-loading">Loading @${col.channel}…</div>`;
 
   try {
     const limit = getPostsPerCol();
     const posts = await apiFetch(col.channel, limit);
-    col.posts = posts;
-    col.texts = posts.map(p => p.text || '');
 
-    // Update header metadata
-
-    col.feedEl.innerHTML = '';
-
-    if (!col.posts.length) {
-      col.feedEl.innerHTML = `<div class="post-loading">No posts found — may be private</div>`;
+    if (!posts.length) {
+      col.feedEl.innerHTML = `<div class="post-loading">No posts found</div>`;
       setDot(col, 'error');
       return;
     }
 
-    // Render: oldest first (top) → newest last (bottom)
-    [...col.posts].reverse().forEach(post => {
-      col.feedEl.appendChild(buildCard(post, false, col.label));
+    // ✅ newest → oldest (keep only limit)
+    col.posts = posts.slice(0, limit);
+
+    col.feedEl.innerHTML = '';
+
+    // ✅ render newest at TOP
+    col.posts.forEach(post => {
+      col.feedEl.appendChild(buildCard(post));
     });
 
-    snapToBottom(col.feedEl);
     setDot(col, 'ok');
+
   } catch (err) {
-    console.error('loadPosts', err);
+    console.error(err);
     col.feedEl.innerHTML = `<div class="post-loading" style="color:#e05252">Failed — check channel name</div>`;
     setDot(col, 'error');
   }
@@ -719,49 +720,41 @@ async function loadPosts(col) {
 async function refreshCol(col) {
   try {
     const limit = getPostsPerCol();
-    // Fetch a few extra so we don't miss multiple rapid posts
-    const incomingLatest = await apiFetch(col.channel, limit + 5);
 
-    if (!incomingLatest.length) return;
+    const latest = await apiFetch(col.channel, limit + 3);
+    if (!latest.length) return;
 
-    // IDs we already show
-    const knownSet = new Set(col.posts.map(p => p.id));
-    const newPosts = incomingLatest.filter(p => !knownSet.has(p.id));
+    // existing posts
+    const existingIds = new Set(col.posts.map(p => p.id));
+
+    // find new ones
+    const newPosts = latest.filter(p => !existingIds.has(p.id));
 
     if (!newPosts.length) {
-      // No new posts — quietly update texts for AI
-      col.texts = incomingLatest.map(p => p.text || '');
       setDot(col, 'ok');
       return;
     }
 
-    const atBottom   = isNearBottom(col.feedEl);
-    const numNew = newPosts.length;
-
-    // Get current visible cards (oldest first = DOM order)
-    const currentCards = Array.from(col.feedEl.querySelectorAll('.post-card'));
-    // We need to remove numNew oldest cards to make room
-    const toRemove = currentCards.slice(0, numNew);
-
-    // Step 1: animate out the oldest cards simultaneously
-    await Promise.all(toRemove.map(card => removeCardAnimated(card)));
-
-    // Step 2: append new cards at bottom (oldest of new batch first, newest last)
-    // newIds is newest→oldest, reverse it so we append oldest-new first
-    [...newPosts].reverse().forEach(post => {
-      col.feedEl.appendChild(buildCard(post, true, col.label));
+    // ✅ insert new posts at TOP
+    newPosts.forEach(post => {
+      col.feedEl.prepend(buildCard(post, true));
     });
 
-    // Step 3: update our stored state — keep the newest `limit` IDs
-    col.posts = incomingLatest.slice(0, limit);
-    col.texts = incomingLatest.map(p => p.text || '');
+    // ✅ update state
+    col.posts = [...newPosts, ...col.posts];
 
-    // Step 4: scroll to reveal new content if user was at bottom
-    if (atBottom) setTimeout(() => snapToBottom(col.feedEl), 50);
+    // ✅ trim to limit (REMOVE OLDEST FROM BOTTOM)
+    while (col.posts.length > limit) {
+      col.posts.pop();
+
+      const last = col.feedEl.lastElementChild;
+      if (last) last.remove();
+    }
+
     setDot(col, 'ok');
 
   } catch (err) {
-    console.error('refreshCol', err);
+    console.error(err);
     setDot(col, 'error');
   }
 }
