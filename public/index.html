@@ -341,6 +341,30 @@
     white-space: pre-wrap;
   }
 
+  .tg-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6ab7ff;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.tg-header:hover {
+  text-decoration: underline;
+}
+
+.tg-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+}
+
+.tg-channel {
+  color: #6ab7ff;
+}
+
   </style>
 </head>
 <body>
@@ -541,7 +565,7 @@ async function loadPosts(col) {
 
     // Render: oldest first (top) → newest last (bottom)
     [...col.posts].reverse().forEach(post => {
-      col.feedEl.appendChild(buildCard(post));
+      col.feedEl.appendChild(buildCard(post, false, col.label));
     });
 
     snapToBottom(col.feedEl);
@@ -598,7 +622,7 @@ async function refreshCol(col) {
     // Step 2: append new cards at bottom (oldest of new batch first, newest last)
     // newIds is newest→oldest, reverse it so we append oldest-new first
     [...newPosts].reverse().forEach(post => {
-      col.feedEl.appendChild(buildCard(post, true));
+      col.feedEl.appendChild(buildCard(post, true, col.label));
     });
 
     // Step 3: update our stored state — keep the newest `limit` IDs
