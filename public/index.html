@@ -8,223 +8,317 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0e0e0e;
-      --surface: #1a1a1a;
-      --surface2: #242424;
-      --border: rgba(255,255,255,0.08);
-      --border2: rgba(255,255,255,0.15);
-      --text: #f0f0f0;
-      --text2: #999;
-      --text3: #555;
+      --toolbar-h: 46px;
       --accent: #2ca5e0;
       --accent2: #1a7ab5;
       --danger: #e05252;
-      --success: #4caf84;
+      --success: #52c47a;
+      --text: #f0f0f0;
+      --text2: #aaa;
+      --text3: #555;
+      --surface: rgba(15,15,15,0.82);
+      --surface2: rgba(30,30,30,0.9);
+      --border: rgba(255,255,255,0.09);
+      --border2: rgba(255,255,255,0.18);
       --radius: 10px;
       --radius-sm: 6px;
     }
 
+    /* ── FULL-SCREEN BACKGROUND ── */
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
       height: 100dvh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      /* Default background — user can override via CSS var below */
+      background: #0e0e0e;
+      color: var(--text);
+      position: relative;
     }
 
+    /* Background layer — sits behind everything */
+    #bg-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      /* default dark gradient — replaced when user sets a background */
+      background-image: linear-gradient(135deg, #0d0d1a 0%, #0a0a0a 50%, #0d1a0d 100%);
+      transition: background-image 0.4s;
+    }
+    /* optional blur overlay to keep text readable on busy backgrounds */
+    #bg-layer::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+    }
+
+    /* everything above the bg */
+    #toolbar, #columns-area, .modal-overlay { position: relative; z-index: 1; }
+
+    /* ── TOOLBAR ── */
     #toolbar {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 9px 16px;
+      padding: 0 14px;
+      height: var(--toolbar-h);
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     }
-    #toolbar h1 { font-size: 15px; font-weight: 700; color: var(--accent); white-space: nowrap; }
-    .tb-sep { flex: 1; min-width: 4px; }
-    .tb-label { font-size: 12px; color: var(--text2); white-space: nowrap; }
 
-    #live-dot {
-      display: flex; align-items: center; gap: 5px;
-      font-size: 11px; color: var(--text2); white-space: nowrap;
+    #toolbar h1 { font-size: 14px; font-weight: 700; color: var(--accent); white-space: nowrap; letter-spacing: -.2px; }
+    .tb-sep { flex: 1; min-width: 2px; }
+    .tb-label { font-size: 11px; color: var(--text2); white-space: nowrap; }
+
+    #live-pip {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--text2);
     }
-    #live-dot .dot {
+    #live-pip .dot {
       width: 6px; height: 6px; border-radius: 50%;
       background: var(--success);
-      animation: breathe 2.5s ease-in-out infinite;
+      animation: pulse 2.5s ease-in-out infinite;
     }
-    @keyframes breathe { 0%,100%{opacity:0.3} 50%{opacity:1} }
+    @keyframes pulse { 0%,100%{opacity:.25} 50%{opacity:1} }
 
     select, input[type=number] {
-      background: var(--surface2);
-      border: 1px solid var(--border2);
-      color: var(--text);
-      border-radius: var(--radius-sm);
-      padding: 5px 8px; font-size: 12px; outline: none;
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--text); border-radius: var(--radius-sm);
+      padding: 4px 7px; font-size: 12px; outline: none;
+      backdrop-filter: blur(8px);
     }
     select:focus, input[type=number]:focus { border-color: var(--accent); }
+    input[type=number] { width: 46px; }
 
     .btn {
       background: var(--surface2); border: 1px solid var(--border2);
       color: var(--text); border-radius: var(--radius-sm);
-      padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
+      padding: 4px 11px; font-size: 12px; cursor: pointer; white-space: nowrap;
+      backdrop-filter: blur(8px);
+      transition: background .15s;
     }
-    .btn:hover { background: #2e2e2e; }
+    .btn:hover { background: rgba(60,60,60,.9); }
     .btn.accent { border-color: var(--accent); color: var(--accent); }
-    .btn.accent:hover { background: rgba(44,165,224,0.1); }
+    .btn.accent:hover { background: rgba(44,165,224,.15); }
 
+    /* ── BG PICKER hidden input ── */
+    #bg-file-input { display: none; }
+
+    /* ── COLUMNS AREA ── */
     #columns-area {
-      display: flex; flex: 1;
-      overflow-x: auto; overflow-y: hidden;
+      display: flex;
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: hidden;
+      gap: 1px;
+      background: var(--border); /* gap color */
       scroll-snap-type: x mandatory;
     }
+    #columns-area::-webkit-scrollbar { height: 4px; }
+    #columns-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
+    /* ── COLUMN ── */
     .col-wrap {
-      display: flex; flex-direction: column; flex-shrink: 0;
-      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      background: transparent; /* bg shows through between cards */
       scroll-snap-align: start;
+      min-width: 0;
     }
 
+    /* Column header — frosted glass */
     .col-header {
       display: flex; align-items: center;
-      padding: 9px 12px;
+      padding: 8px 11px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      flex-shrink: 0; gap: 8px;
+      flex-shrink: 0; gap: 7px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     }
     .col-info { flex: 1; min-width: 0; }
-    .col-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .col-meta { font-size: 11px; color: var(--text2); margin-top: 2px; display: flex; gap: 6px; align-items: center; }
-    .col-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background 0.3s; }
-    .col-dot.ok { background: var(--success); }
-    .col-dot.loading { background: var(--accent); animation: breathe 1s infinite; }
-    .col-dot.error { background: var(--danger); }
-    .col-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .col-title {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .col-meta {
+      font-size: 10px; color: var(--text2); margin-top: 1px;
+      display: flex; gap: 5px; align-items: center;
+    }
+    .col-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--text3); flex-shrink: 0; transition: background .3s;
+    }
+    .col-dot.ok      { background: var(--success); }
+    .col-dot.loading { background: var(--accent); animation: pulse 1s infinite; }
+    .col-dot.error   { background: var(--danger); }
+
+    .col-actions { display: flex; gap: 3px; flex-shrink: 0; }
     .col-btn {
       background: transparent; border: 1px solid transparent;
       color: var(--text3); border-radius: var(--radius-sm);
-      padding: 3px 7px; font-size: 11px; cursor: pointer; transition: all 0.15s;
+      padding: 2px 6px; font-size: 11px; cursor: pointer; transition: all .15s;
     }
-    .col-btn:hover { border-color: var(--border2); color: var(--text); }
-    .col-btn.ai-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .col-btn.del-btn:hover { border-color: var(--danger); color: var(--danger); }
+    .col-btn:hover               { border-color: var(--border2); color: var(--text); }
+    .col-btn.ai-btn:hover        { border-color: var(--accent);  color: var(--accent); }
+    .col-btn.del-btn:hover       { border-color: var(--danger);  color: var(--danger); }
 
+    /* AI panel */
     .ai-panel {
-      background: var(--surface2); border-bottom: 1px solid var(--border);
-      padding: 12px; font-size: 12px; flex-shrink: 0; display: none;
+      background: rgba(20,20,20,.92); border-bottom: 1px solid var(--border);
+      padding: 10px 12px; font-size: 12px; flex-shrink: 0; display: none;
+      backdrop-filter: blur(10px);
     }
     .ai-panel.open { display: block; }
-    .ai-panel-head { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .ai-panel-head {
+      font-size: 10px; font-weight: 700; color: var(--accent);
+      margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between;
+    }
     .ai-text { color: var(--text2); line-height: 1.65; white-space: pre-wrap; }
     .ai-text.muted { color: var(--text3); font-style: italic; }
 
-    /* ── FEED: newest at bottom ── */
+    /* ── FEED ── */
     .col-feed {
-      flex: 1; overflow-y: auto;
-      padding: 8px; display: flex;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px 6px;
+      display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 7px;
+      /* smooth scroll so the push-up animation works nicely */
       scroll-behavior: smooth;
     }
     .col-feed::-webkit-scrollbar { width: 3px; }
     .col-feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-    /* ── POST CARD ── */
+    /* ── POST CARD ──
+       The Telegram embed widget renders its own white iframe.
+       We DON'T touch its colors — we just contain it cleanly.
+       The dark background of the page surrounds the white cards,
+       which is exactly how Telegram Desktop looks.
+    */
     .post-card {
       flex-shrink: 0;
       border-radius: var(--radius);
       overflow: hidden;
-      border: 1px solid var(--border);
-      background: #161616;
+      background: #ffffff; /* Telegram widget is white — own it */
+      box-shadow: 0 2px 12px rgba(0,0,0,0.45);
       position: relative;
-      transition: border-color 0.3s;
+      /* entrance animation */
+      transform-origin: bottom center;
     }
 
-    /* 
-      Dark mode trick for Telegram embeds:
-      The widget renders an <iframe> with a white background.
-      invert(1) makes white→black, black→white.
-      hue-rotate(180deg) corrects the color hues back to normal.
-      Result: dark background, normal-looking colors, text is light.
-      Images inside the iframe get double-inverted by the img rule = look correct.
-    */
-    .tg-embed-wrap {
-      filter: invert(1) hue-rotate(180deg);
+    /* Slide-in animation for new posts (from bottom) */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
     }
-    /* Re-invert media so photos/videos look correct (double invert = original) */
-    .tg-embed-wrap img,
-    .tg-embed-wrap video {
-      filter: invert(1) hue-rotate(180deg);
+    /* Slide-out animation for removed posts (push up and fade) */
+    @keyframes slideOut {
+      from { opacity: 1; transform: translateY(0); max-height: 2000px; margin-bottom: 7px; }
+      to   { opacity: 0; transform: translateY(-20px); max-height: 0;    margin-bottom: 0; padding: 0; }
     }
 
-    .post-card.is-new {
-      border-color: rgba(44,165,224,0.6);
-      animation: newGlow 3s ease forwards;
+    .post-card.entering {
+      animation: slideIn .35s cubic-bezier(.22,.68,0,1.2) forwards;
     }
-    @keyframes newGlow {
-      0%   { border-color: rgba(44,165,224,0.8); box-shadow: 0 0 12px rgba(44,165,224,0.2); }
-      100% { border-color: var(--border); box-shadow: none; }
+    .post-card.leaving {
+      animation: slideOut .3s ease-in forwards;
+      pointer-events: none;
+      overflow: hidden;
     }
 
+    /* NEW badge */
     .new-badge {
-      position: absolute; top: 7px; right: 9px;
+      position: absolute; top: 7px; right: 9px; z-index: 10;
       background: var(--accent); color: #fff;
-      font-size: 10px; font-weight: 700;
+      font-size: 9px; font-weight: 800; letter-spacing: .5px;
       padding: 2px 7px; border-radius: 20px;
-      pointer-events: none; z-index: 10;
-      animation: badgeFade 3s ease forwards;
+      animation: badgeFade 3.5s ease forwards;
+      pointer-events: none;
     }
     @keyframes badgeFade { 0%,50%{opacity:1} 100%{opacity:0} }
 
-    .post-loading { padding: 20px; font-size: 12px; color: var(--text3); text-align: center; }
+    /* NEW post card glow */
+    .post-card.is-new {
+      box-shadow: 0 0 0 2px var(--accent), 0 4px 20px rgba(44,165,224,.25);
+      animation: slideIn .35s cubic-bezier(.22,.68,0,1.2) forwards,
+                 glowFade 3.5s ease forwards;
+    }
+    @keyframes glowFade {
+      0%   { box-shadow: 0 0 0 2px var(--accent), 0 4px 20px rgba(44,165,224,.25); }
+      100% { box-shadow: 0 2px 12px rgba(0,0,0,.45); }
+    }
+
+    .post-loading {
+      padding: 22px 16px; font-size: 12px;
+      color: #888; text-align: center;
+      background: #fff;
+    }
 
     /* ── MODAL ── */
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      position: fixed; inset: 0; background: rgba(0,0,0,.75);
       display: flex; align-items: center; justify-content: center;
-      z-index: 1000; backdrop-filter: blur(6px);
+      z-index: 100; backdrop-filter: blur(8px);
     }
     .modal-box {
-      background: var(--surface); border: 1px solid var(--border2);
-      border-radius: var(--radius); padding: 24px;
-      width: 320px; max-width: calc(100vw - 32px);
+      background: #1c1c1c; border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: 22px;
+      width: 310px; max-width: calc(100vw - 28px);
     }
-    .modal-box h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
-    .field { margin-bottom: 14px; }
-    .field label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
+    .modal-box h2 { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+    .field { margin-bottom: 12px; }
+    .field label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
     .field input {
-      width: 100%; background: var(--surface2); border: 1px solid var(--border2);
-      color: var(--text); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; outline: none;
+      width: 100%; background: #2a2a2a; border: 1px solid var(--border2);
+      color: var(--text); border-radius: var(--radius-sm);
+      padding: 7px 10px; font-size: 13px; outline: none;
     }
     .field input:focus { border-color: var(--accent); }
-    .field small { font-size: 11px; color: var(--text3); margin-top: 4px; display: block; }
-    .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+    .field small { font-size: 10px; color: var(--text3); margin-top: 3px; display: block; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
     .modal-actions button {
-      flex: 1; padding: 9px; font-size: 13px;
+      flex: 1; padding: 8px; font-size: 13px;
       border-radius: var(--radius-sm); cursor: pointer;
-      border: 1px solid var(--border2); background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border2); background: #2a2a2a; color: var(--text);
     }
-    .modal-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .modal-actions button.primary {
+      background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+    }
     .modal-actions button.primary:hover { background: var(--accent2); }
 
-    @media (max-width: 480px) { .tb-label { display: none; } }
+    @media (max-width: 520px) {
+      .tb-label { display: none; }
+      #live-pip span { display: none; }
+    }
   </style>
 </head>
 <body>
 
+<!-- Full-screen background layer -->
+<div id="bg-layer"></div>
+
 <div id="toolbar">
   <h1>📡 TG Feed</h1>
-  <div id="live-dot" title="Auto-refreshes every 60s">
+  <div id="live-pip" title="Auto-refreshes every 60s">
     <div class="dot"></div>
     <span>Live</span>
   </div>
   <span class="tb-sep"></span>
   <span class="tb-label">Posts:</span>
-  <input type="number" id="posts-per-col" value="3" min="1" max="10" style="width:48px">
+  <input type="number" id="posts-per-col" value="3" min="1" max="10">
   <span class="tb-label">Width:</span>
   <select id="col-width">
     <option value="100">100%</option>
@@ -233,19 +327,23 @@
     <option value="33">33%</option>
     <option value="25">25%</option>
   </select>
+  <!-- Background picker -->
+  <button class="btn" id="bg-btn" title="Set background image">🖼 BG</button>
+  <input type="file" id="bg-file-input" accept="image/*">
   <button class="btn" id="refresh-btn">↻ Refresh</button>
   <button class="btn accent" id="add-col-btn">+ Channel</button>
 </div>
 
 <div id="columns-area"></div>
 
+<!-- Add channel modal -->
 <div id="modal" class="modal-overlay" style="display:none">
   <div class="modal-box">
     <h2>Add a channel</h2>
     <div class="field">
       <label>Channel username</label>
       <input id="modal-channel" type="text" placeholder="e.g. topor">
-      <small>The part after t.me/ — no @ symbol needed</small>
+      <small>The part after t.me/ — no @ needed</small>
     </div>
     <div class="field">
       <label>Label (optional)</label>
@@ -259,23 +357,42 @@
 </div>
 
 <script>
-const API_BASE         = '';          // same origin on Vercel
-const AUTO_REFRESH_MS  = 60_000;      // poll every 60 seconds
+// ─────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────
+const API_BASE        = '';        // same origin on Vercel
+const REFRESH_MS      = 60_000;    // auto-refresh interval
 const DEFAULT_CHANNELS = [
   { channel: 'topor',    label: 'Топор' },
   { channel: 'cybers',   label: 'КиберТопор' },
   { channel: 'ecotopor', label: 'ЭкоТопор' },
 ];
 
-let columns        = [];
-let colIdCounter   = 0;
-let refreshTimer   = null;
+let columns      = [];
+let colIdCounter = 0;
 
-// ── helpers ──────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// BACKGROUND PICKER
+// ─────────────────────────────────────────────────────────────
+document.getElementById('bg-btn').addEventListener('click', () => {
+  document.getElementById('bg-file-input').click();
+});
+document.getElementById('bg-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const bg  = document.getElementById('bg-layer');
+  bg.style.backgroundImage = `url(${url})`;
+  bg.style.backgroundSize  = 'cover';
+});
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
 function getColWidth() {
   const pct  = parseInt(document.getElementById('col-width').value);
-  const area = document.getElementById('columns-area').offsetWidth || window.innerWidth;
-  return Math.max(300, Math.floor(area * pct / 100));
+  const area = document.getElementById('columns-area');
+  return Math.max(300, Math.floor((area.offsetWidth || window.innerWidth) * pct / 100));
 }
 function getPostsPerCol() {
   return Math.max(1, Math.min(10, parseInt(document.getElementById('posts-per-col').value) || 3));
@@ -285,23 +402,30 @@ function setDot(col, state) {
   if (d) d.className = 'col-dot ' + state;
 }
 function isNearBottom(el) {
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
 }
-function scrollBottom(el) {
+function snapToBottom(el) {
   el.scrollTop = el.scrollHeight;
 }
 
-// ── API ───────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// API
+// ─────────────────────────────────────────────────────────────
 async function apiFetch(channel, limit) {
   const r = await fetch(`${API_BASE}/api/channel?channel=${encodeURIComponent(channel)}&limit=${limit}`);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
-// ── build one embed card ──────────────────────
+// ─────────────────────────────────────────────────────────────
+// BUILD POST CARD
+// Each post is a self-contained white Telegram embed card.
+// No color filters — the white card on a dark background
+// is intentional and matches how Telegram Desktop looks.
+// ─────────────────────────────────────────────────────────────
 function buildCard(channel, postId, isNew = false) {
   const card = document.createElement('div');
-  card.className = 'post-card' + (isNew ? ' is-new' : '');
+  card.className = 'post-card' + (isNew ? ' is-new' : ' entering');
   card.dataset.postId = String(postId);
 
   if (isNew) {
@@ -311,132 +435,204 @@ function buildCard(channel, postId, isNew = false) {
     card.appendChild(badge);
   }
 
-  // Dark-mode wrapper
-  const wrap = document.createElement('div');
-  wrap.className = 'tg-embed-wrap';
-
   const loader = document.createElement('div');
   loader.className = 'post-loading';
   loader.textContent = '⏳';
-  wrap.appendChild(loader);
+  card.appendChild(loader);
 
   const sc = document.createElement('script');
   sc.async = true;
-  sc.src = 'https://telegram.org/js/telegram-widget.js?23';
+  sc.src   = 'https://telegram.org/js/telegram-widget.js?23';
   sc.setAttribute('data-telegram-post', `${channel}/${postId}`);
-  sc.setAttribute('data-width', '100%');
+  sc.setAttribute('data-width',   '100%');
   sc.setAttribute('data-userpic', 'false');
-  sc.setAttribute('data-color', '2CA5E0');
-  sc.onload  = () => setTimeout(() => loader.style.display = 'none', 700);
+  sc.setAttribute('data-color',   '2CA5E0');
+  sc.onload  = () => setTimeout(() => { loader.style.display = 'none'; }, 500);
   sc.onerror = () => { loader.textContent = `Post #${postId} unavailable`; };
-  wrap.appendChild(sc);
-  card.appendChild(wrap);
+  card.appendChild(sc);
+
   return card;
 }
 
-// ── initial load ──────────────────────────────
-// postIds from API are newest→oldest; we reverse so TOP = oldest, BOTTOM = newest
+// ─────────────────────────────────────────────────────────────
+// REMOVE a card with slide-up animation, resolve when done
+// ─────────────────────────────────────────────────────────────
+function removeCardAnimated(card) {
+  return new Promise(resolve => {
+    card.classList.add('leaving');
+    card.addEventListener('animationend', () => { card.remove(); resolve(); }, { once: true });
+    // fallback
+    setTimeout(() => { if (card.parentNode) { card.remove(); } resolve(); }, 400);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// INITIAL LOAD
+// API returns postIds newest→oldest.
+// We reverse so: index 0 = oldest (TOP), last = newest (BOTTOM)
+// ─────────────────────────────────────────────────────────────
 async function loadPosts(col) {
   setDot(col, 'loading');
   col.feedEl.innerHTML = `<div class="post-loading">Loading @${col.channel}…</div>`;
 
   try {
-    const data    = await apiFetch(col.channel, getPostsPerCol());
-    col.postIds   = data.postIds   || [];
-    col.texts     = data.textSnippets || [];
+    const limit = getPostsPerCol();
+    const data  = await apiFetch(col.channel, limit);
 
+    // Store the N most recent IDs (newest first — source of truth)
+    col.postIds = (data.postIds || []).slice(0, limit);
+    col.texts   = data.textSnippets || [];
+
+    // Update header metadata
     const titleEl = col.el.querySelector('.col-title');
     if (titleEl && data.title) titleEl.textContent = data.title;
     const subsEl  = col.el.querySelector('.col-subs');
     if (subsEl && data.subscribers) subsEl.textContent = `· ${Number(data.subscribers).toLocaleString()} subs`;
 
     col.feedEl.innerHTML = '';
+
     if (!col.postIds.length) {
-      col.feedEl.innerHTML = `<div class="post-loading">No posts found — channel may be private</div>`;
-      setDot(col, 'error'); return;
+      col.feedEl.innerHTML = `<div class="post-loading">No posts found — may be private</div>`;
+      setDot(col, 'error');
+      return;
     }
 
-    // Oldest first (top) → newest last (bottom)
-    [...col.postIds].reverse().forEach(pid => col.feedEl.appendChild(buildCard(col.channel, pid)));
-    scrollBottom(col.feedEl);
+    // Render: oldest first (top) → newest last (bottom)
+    [...col.postIds].reverse().forEach(pid => {
+      col.feedEl.appendChild(buildCard(col.channel, pid));
+    });
+
+    snapToBottom(col.feedEl);
     setDot(col, 'ok');
-  } catch (e) {
-    console.error(e);
-    col.feedEl.innerHTML = `<div class="post-loading" style="color:var(--danger)">Failed — check channel name</div>`;
+  } catch (err) {
+    console.error('loadPosts', err);
+    col.feedEl.innerHTML = `<div class="post-loading" style="color:#e05252">Failed — check channel name</div>`;
     setDot(col, 'error');
   }
 }
 
-// ── auto-refresh: inject new posts at bottom, drop oldest from top ──
+// ─────────────────────────────────────────────────────────────
+// AUTO-REFRESH
+//
+// Workflow:
+// 1. Fetch latest IDs from server
+// 2. Find IDs we don't already have → these are NEW posts
+// 3. Animate out the OLDEST cards from the top (one per new post)
+// 4. Animate in the NEW cards at the bottom
+//
+// Result:
+//   Before:  [Post1(old)] [Post2] [Post3(latest)]
+//   After:   [Post2]      [Post3] [Post4(NEW ↓)]
+// ─────────────────────────────────────────────────────────────
 async function refreshCol(col) {
   try {
-    const limit  = getPostsPerCol();
-    const data   = await apiFetch(col.channel, limit + 5);
+    const limit = getPostsPerCol();
+    // Fetch a few extra so we don't miss multiple rapid posts
+    const data  = await apiFetch(col.channel, limit + 5);
     if (!data.postIds?.length) return;
 
-    const known  = new Set(col.postIds);
-    const newIds = data.postIds.filter(id => !known.has(id)); // newest→oldest
+    const incomingLatest = data.postIds; // newest → oldest
 
-    if (!newIds.length) { setDot(col, 'ok'); col.texts = data.textSnippets || col.texts; return; }
+    // IDs we already show
+    const knownSet = new Set(col.postIds);
 
-    const atBottom = isNearBottom(col.feedEl);
+    // New IDs = in incoming but not in known (newest→oldest order)
+    const newIds = incomingLatest.filter(id => !knownSet.has(id));
 
-    // Add new cards at BOTTOM (oldest of the new batch first, newest last)
-    [...newIds].reverse().forEach(pid => col.feedEl.appendChild(buildCard(col.channel, pid, true)));
+    if (!newIds.length) {
+      // No new posts — quietly update texts for AI
+      col.texts = data.textSnippets || col.texts;
+      setDot(col, 'ok');
+      return;
+    }
 
-    // Trim oldest cards from TOP to keep the window size
-    const cards   = col.feedEl.querySelectorAll('.post-card');
-    const surplus = cards.length - limit;
-    for (let i = 0; i < surplus; i++) cards[i].remove();
+    const atBottom   = isNearBottom(col.feedEl);
+    const numNew     = newIds.length;
 
-    col.postIds = data.postIds.slice(0, limit);
+    // Get current visible cards (oldest first = DOM order)
+    const currentCards = Array.from(col.feedEl.querySelectorAll('.post-card'));
+    // We need to remove numNew oldest cards to make room
+    const toRemove = currentCards.slice(0, numNew);
+
+    // Step 1: animate out the oldest cards simultaneously
+    await Promise.all(toRemove.map(card => removeCardAnimated(card)));
+
+    // Step 2: append new cards at bottom (oldest of new batch first, newest last)
+    // newIds is newest→oldest, reverse it so we append oldest-new first
+    [...newIds].reverse().forEach(pid => {
+      col.feedEl.appendChild(buildCard(col.channel, pid, true));
+    });
+
+    // Step 3: update our stored state — keep the newest `limit` IDs
+    col.postIds = incomingLatest.slice(0, limit);
     col.texts   = data.textSnippets || col.texts;
 
-    if (atBottom) scrollBottom(col.feedEl);
+    // Step 4: scroll to reveal new content if user was at bottom
+    if (atBottom) setTimeout(() => snapToBottom(col.feedEl), 50);
     setDot(col, 'ok');
-  } catch (e) {
-    console.error('refresh err', e);
+
+  } catch (err) {
+    console.error('refreshCol', err);
     setDot(col, 'error');
   }
 }
 
-// ── AI summary ────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// AI SUMMARY
+// ─────────────────────────────────────────────────────────────
 async function generateSummary(col) {
   const panel  = col.aiPanel;
   const textEl = panel.querySelector('.ai-text');
   panel.classList.add('open');
   textEl.className = 'ai-text muted';
-  textEl.textContent = '⏳ Generating…';
+  textEl.textContent = '⏳ Generating summary…';
 
-  if (!col.texts?.length) { textEl.textContent = 'No text yet — refresh first.'; textEl.className = 'ai-text'; return; }
+  if (!col.texts?.length) {
+    textEl.textContent = 'No post text yet — refresh first.';
+    textEl.className = 'ai-text';
+    return;
+  }
 
   try {
     const r    = await fetch(`${API_BASE}/api/summarize`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel: col.label, texts: col.texts })
     });
     const data = await r.json();
+
     if (data.error?.includes('no GEMINI_API_KEY')) {
-      textEl.textContent = '⚠ Add GEMINI_API_KEY to Vercel env vars.\nFree key: aistudio.google.com';
+      textEl.textContent = '⚠ Add GEMINI_API_KEY to Vercel env vars.\nFree key at: aistudio.google.com';
     } else if (data.error) {
       textEl.textContent = `Error: ${data.error}`;
     } else {
       textEl.textContent = data.summary;
     }
     textEl.className = 'ai-text';
-  } catch { textEl.textContent = 'Network error'; textEl.className = 'ai-text'; }
+  } catch {
+    textEl.textContent = 'Network error';
+    textEl.className = 'ai-text';
+  }
 }
 
-// ── create column ─────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// CREATE COLUMN
+// ─────────────────────────────────────────────────────────────
 function createColumn(cfg) {
   const id  = ++colIdCounter;
-  const col = { id, channel: cfg.channel, label: cfg.label || cfg.channel, el: null, feedEl: null, aiPanel: null, postIds: [], texts: [] };
+  const col = {
+    id, channel: cfg.channel, label: cfg.label || cfg.channel,
+    el: null, feedEl: null, aiPanel: null,
+    postIds: [], texts: []
+  };
   columns.push(col);
 
   const wrap = document.createElement('div');
   wrap.className = 'col-wrap';
   wrap.dataset.colId = id;
+  wrap.style.width = getColWidth() + 'px';
 
+  // Header
   const header = document.createElement('div');
   header.className = 'col-header';
   header.innerHTML = `
@@ -451,20 +647,22 @@ function createColumn(cfg) {
     <div class="col-actions">
       <button class="col-btn ai-btn" data-action="ai"      data-id="${id}">✦ AI</button>
       <button class="col-btn"        data-action="refresh" data-id="${id}">↻</button>
-      <button class="col-btn del-btn" data-action="remove"  data-id="${id}">✕</button>
+      <button class="col-btn del-btn" data-action="remove" data-id="${id}">✕</button>
     </div>`;
   wrap.appendChild(header);
 
+  // AI panel
   const aiPanel = document.createElement('div');
   aiPanel.className = 'ai-panel';
   aiPanel.innerHTML = `
     <div class="ai-panel-head">
-      <span>✦ Summary</span>
+      <span>✦ SUMMARY</span>
       <button class="col-btn" data-action="close-ai" data-id="${id}" style="padding:1px 5px;font-size:10px">✕</button>
     </div>
-    <div class="ai-text muted">Click ✦ AI above to summarise recent posts.</div>`;
+    <div class="ai-text muted">Click ✦ AI to summarise recent posts.</div>`;
   wrap.appendChild(aiPanel);
 
+  // Feed
   const feed = document.createElement('div');
   feed.className = 'col-feed';
   wrap.appendChild(feed);
@@ -473,55 +671,78 @@ function createColumn(cfg) {
   col.feedEl  = feed;
   col.aiPanel = aiPanel;
 
-  wrap.style.width = getColWidth() + 'px';
   document.getElementById('columns-area').appendChild(wrap);
   loadPosts(col);
   return col;
 }
 
-// ── event delegation ──────────────────────────
+// ─────────────────────────────────────────────────────────────
+// EVENTS
+// ─────────────────────────────────────────────────────────────
 document.getElementById('columns-area').addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const id  = parseInt(btn.dataset.id);
   const col = columns.find(c => c.id === id);
   switch (btn.dataset.action) {
-    case 'remove':   col && (col.el.remove(), columns = columns.filter(c => c.id !== id)); break;
-    case 'refresh':  col && loadPosts(col); break;
-    case 'ai':       col && generateSummary(col); break;
-    case 'close-ai': col && col.aiPanel.classList.remove('open'); break;
+    case 'remove':
+      if (col) { col.el.remove(); columns = columns.filter(c => c.id !== id); }
+      break;
+    case 'refresh':  if (col) loadPosts(col); break;
+    case 'ai':       if (col) generateSummary(col); break;
+    case 'close-ai': if (col) col.aiPanel.classList.remove('open'); break;
   }
 });
 
-document.getElementById('refresh-btn').addEventListener('click', () => columns.forEach(loadPosts));
-document.getElementById('col-width').addEventListener('change', () => columns.forEach(col => { col.el.style.width = getColWidth() + 'px'; }));
-document.getElementById('posts-per-col').addEventListener('change', () => columns.forEach(loadPosts));
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  columns.forEach(col => loadPosts(col));
+});
 
-// ── modal ─────────────────────────────────────
+document.getElementById('col-width').addEventListener('change', () => {
+  const w = getColWidth() + 'px';
+  columns.forEach(col => { col.el.style.width = w; });
+});
+
+document.getElementById('posts-per-col').addEventListener('change', () => {
+  columns.forEach(col => loadPosts(col));
+});
+
+// Modal
 const modal = document.getElementById('modal');
-document.getElementById('add-col-btn').addEventListener('click', () => { modal.style.display = 'flex'; document.getElementById('modal-channel').focus(); });
-document.getElementById('modal-cancel').addEventListener('click', () => modal.style.display = 'none');
+document.getElementById('add-col-btn').addEventListener('click', () => {
+  modal.style.display = 'flex';
+  document.getElementById('modal-channel').focus();
+});
+document.getElementById('modal-cancel').addEventListener('click', () => { modal.style.display = 'none'; });
 modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
 document.getElementById('modal-add').addEventListener('click', () => {
-  const ch  = document.getElementById('modal-channel').value.trim().replace('@','').toLowerCase();
+  const ch  = document.getElementById('modal-channel').value.trim().replace('@', '').toLowerCase();
   const lbl = document.getElementById('modal-label').value.trim();
-  if (!ch) return document.getElementById('modal-channel').focus();
+  if (!ch) { document.getElementById('modal-channel').focus(); return; }
   createColumn({ channel: ch, label: lbl || ch });
   document.getElementById('modal-channel').value = '';
   document.getElementById('modal-label').value   = '';
   modal.style.display = 'none';
 });
-document.getElementById('modal-channel').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('modal-add').click(); });
+document.getElementById('modal-channel').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('modal-add').click();
+});
 
-// ── resize ────────────────────────────────────
+// Resize
 let rTimer;
-window.addEventListener('resize', () => { clearTimeout(rTimer); rTimer = setTimeout(() => columns.forEach(col => { col.el.style.width = getColWidth() + 'px'; }), 100); });
+window.addEventListener('resize', () => {
+  clearTimeout(rTimer);
+  rTimer = setTimeout(() => {
+    const w = getColWidth() + 'px';
+    columns.forEach(col => { col.el.style.width = w; });
+  }, 100);
+});
 
-// ── auto-refresh every 60s ────────────────────
-refreshTimer = setInterval(() => columns.forEach(refreshCol), AUTO_REFRESH_MS);
-
-// ── boot ──────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────
 DEFAULT_CHANNELS.forEach(cfg => createColumn(cfg));
+setInterval(() => columns.forEach(refreshCol), REFRESH_MS);
 </script>
 </body>
 </html>
