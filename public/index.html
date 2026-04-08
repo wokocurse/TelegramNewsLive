@@ -214,9 +214,24 @@
     border-radius: var(--radius);
     overflow: hidden;
     background: transparent !important;
-    box-shadow: none; /* KEY CHANGE */
+    box-shadow: none;
     position: relative;
+
+    /* 👇 ADD THIS */
+    padding: 6px;
   }
+
+  .post-inner {
+  border-radius: 12px;
+  overflow: hidden;
+
+  /* THIS CREATES THE FLOATING EFFECT */
+  max-width: 95%;
+  margin: 0 auto;
+
+  /* optional: subtle depth */
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
 
     /* Slide-in animation for new posts (from bottom) */
     @keyframes slideIn {
@@ -452,7 +467,11 @@ function buildCard(channel, postId, isNew = false) {
   sc.setAttribute('data-color',   '2CA5E0');
   sc.onload  = () => setTimeout(() => { loader.style.display = 'none'; }, 500);
   sc.onerror = () => { loader.textContent = `Post #${postId} unavailable`; };
-  card.appendChild(sc);
+  const inner = document.createElement('div');
+  inner.className = 'post-inner';
+
+  inner.appendChild(sc);
+  card.appendChild(inner);
 
   return card;
 }
