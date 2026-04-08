@@ -1,9 +1,5 @@
 import * as cheerio from 'cheerio';
 
-// 🔥 GLOBAL CACHE (shared across requests)
-const CACHE = new Map();
-const CACHE_TTL = 10000; // 10 seconds
-
 export default async function handler(req, res) {
   const { channel, limit = 5 } = req.query;
 
@@ -12,14 +8,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const cacheKey = channel;
-    const cached = CACHE.get(cacheKey);
-
-    // ✅ RETURN CACHED DATA
-    if (cached && Date.now() - cached.time < CACHE_TTL) {
-      return res.status(200).json(cached.data);
-    }
-
     const url = `https://t.me/s/${channel}`;
 
     // ✅ safer request (prevents Telegram blocking)
@@ -34,8 +22,8 @@ export default async function handler(req, res) {
 
     const posts = [];
 
-    // 🔥 LIMIT PARSING (CRITICAL FOR MEMORY)
-    $('.tgme_widget_message').slice(0, 6).each((i, el) => {
+    // 🔥 MAIN LOOP (fixed)
+    $('.tgme_widget_message').each((i, el) => {
       const id = $(el).attr('data-post')?.split('/')[1];
       if (!id) return;
 
@@ -45,7 +33,7 @@ export default async function handler(req, res) {
         .text()
         .trim();
 
-      // 🖼 IMAGES
+      // 🖼 IMAGES (multi-image support)
       const images = [];
       $(el).find('.tgme_widget_message_photo_wrap').each((_, imgEl) => {
         const style = $(imgEl).attr('style');
@@ -94,20 +82,12 @@ export default async function handler(req, res) {
       });
     });
 
-    // 🔥 SORT NEWEST → OLDEST (VERY IMPORTANT)
+    // 🔥 SORT NEWEST → OLDEST (CRITICAL FIX)
     posts.sort((a, b) => b.id - a.id);
 
-    const result = {
+    return res.status(200).json({
       posts: posts.slice(0, Number(limit))
-    };
-
-    // ✅ SAVE TO CACHE
-    CACHE.set(cacheKey, {
-      time: Date.now(),
-      data: result
     });
-
-    return res.status(200).json(result);
 
   } catch (err) {
     console.error('Channel fetch error:', err);
