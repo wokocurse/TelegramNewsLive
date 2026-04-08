@@ -24,21 +24,33 @@ export default async function handler(req, res) {
         .text()
         .trim();
 
-      const photoStyle = $(el)
-        .find('.tgme_widget_message_photo_wrap')
-        .attr('style');
+      // 🖼 MULTIPLE IMAGES
+      const images = [];
+      $(el).find('.tgme_widget_message_photo_wrap').each((_, imgEl) => {
+        const style = $(imgEl).attr('style');
+        const match = style?.match(/url\('(.*?)'\)/);
+        if (match) images.push(match[1]);
+      });
 
-      let image = null;
-      if (photoStyle) {
-        const match = photoStyle.match(/url\('(.*?)'\)/);
-        if (match) image = match[1];
-      }
+      // 👁 VIEWS
+      const views = $(el)
+        .find('.tgme_widget_message_views')
+        .text()
+        .trim();
+
+      // 🕒 DATE
+      const date = $(el)
+        .find('time')
+        .attr('datetime');
 
       if (id) {
         posts.push({
           id: Number(id),
           text,
-          image
+          images,
+          views,
+          date,
+          link: `https://t.me/${channel}/${id}`
         });
       }
     });
