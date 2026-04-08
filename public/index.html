@@ -321,6 +321,26 @@
       .tb-label { display: none; }
       #live-pip span { display: none; }
     }
+
+    .tg-post {
+    background: #1e1e1e;
+    color: #e6e6e6;
+    border-radius: 14px;
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .tg-img {
+    width: 100%;
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+
+  .tg-text {
+    white-space: pre-wrap;
+  }
+
   </style>
 </head>
 <body>
@@ -432,7 +452,8 @@ function snapToBottom(el) {
 async function apiFetch(channel, limit) {
   const r = await fetch(`${API_BASE}/api/channel?channel=${encodeURIComponent(channel)}&limit=${limit}`);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  return data.posts || [];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -441,37 +462,24 @@ async function apiFetch(channel, limit) {
 // No color filters — the white card on a dark background
 // is intentional and matches how Telegram Desktop looks.
 // ─────────────────────────────────────────────────────────────
-function buildCard(channel, postId, isNew = false) {
+function buildCard(post, isNew = false) {
   const card = document.createElement('div');
   card.className = 'post-card' + (isNew ? ' is-new' : ' entering');
-  card.dataset.postId = String(postId);
+  card.dataset.postId = String(post.id);
 
-  if (isNew) {
-    const badge = document.createElement('div');
-    badge.className = 'new-badge';
-    badge.textContent = 'NEW';
-    card.appendChild(badge);
+  const hasContent = post.image || post.text;
+
+  if (!hasContent) {
+    card.innerHTML = `<div class="tg-post">[empty post]</div>`;
+    return card;
   }
 
-  const loader = document.createElement('div');
-  loader.className = 'post-loading';
-  loader.textContent = '⏳';
-  card.appendChild(loader);
-
-  const sc = document.createElement('script');
-  sc.async = true;
-  sc.src   = 'https://telegram.org/js/telegram-widget.js?23';
-  sc.setAttribute('data-telegram-post', `${channel}/${postId}`);
-  sc.setAttribute('data-width',   '100%');
-  sc.setAttribute('data-userpic', 'false');
-  sc.setAttribute('data-color',   '2CA5E0');
-  sc.onload  = () => setTimeout(() => { loader.style.display = 'none'; }, 500);
-  sc.onerror = () => { loader.textContent = `Post #${postId} unavailable`; };
-  const inner = document.createElement('div');
-  inner.className = 'post-inner';
-
-  inner.appendChild(sc);
-  card.appendChild(inner);
+  card.innerHTML = `
+    <div class="tg-post">
+      ${post.image ? `<img src="${post.image}" class="tg-img"/>` : ''}
+      ${post.text ? `<div class="tg-text">${post.text}</div>` : ''}
+    </div>
+  `;
 
   return card;
 }
@@ -499,29 +507,23 @@ async function loadPosts(col) {
 
   try {
     const limit = getPostsPerCol();
-    const data  = await apiFetch(col.channel, limit);
-
-    // Store the N most recent IDs (newest first — source of truth)
-    col.postIds = (data.postIds || []).slice(0, limit);
-    col.texts   = data.textSnippets || [];
+    const posts = await apiFetch(col.channel, limit);
+    col.posts = posts;
+    col.texts = posts.map(p => p.text || '');
 
     // Update header metadata
-    const titleEl = col.el.querySelector('.col-title');
-    if (titleEl && data.title) titleEl.textContent = data.title;
-    const subsEl  = col.el.querySelector('.col-subs');
-    if (subsEl && data.subscribers) subsEl.textContent = `· ${Number(data.subscribers).toLocaleString()} subs`;
 
     col.feedEl.innerHTML = '';
 
-    if (!col.postIds.length) {
+    if (!col.posts.length) {
       col.feedEl.innerHTML = `<div class="post-loading">No posts found — may be private</div>`;
       setDot(col, 'error');
       return;
     }
 
     // Render: oldest first (top) → newest last (bottom)
-    [...col.postIds].reverse().forEach(pid => {
-      col.feedEl.appendChild(buildCard(col.channel, pid));
+    [...col.posts].reverse().forEach(post => {
+      col.feedEl.appendChild(buildCard(post));
     });
 
     snapToBottom(col.feedEl);
@@ -550,26 +552,22 @@ async function refreshCol(col) {
   try {
     const limit = getPostsPerCol();
     // Fetch a few extra so we don't miss multiple rapid posts
-    const data  = await apiFetch(col.channel, limit + 5);
-    if (!data.postIds?.length) return;
-
-    const incomingLatest = data.postIds; // newest → oldest
+  const incomingLatest = await apiFetch(col.channel, limit + 5);
+  if (!incomingLatest.length) return;
 
     // IDs we already show
-    const knownSet = new Set(col.postIds);
+    const knownSet = new Set(col.posts.map(p => p.id));
+    const newPosts = incomingLatest.filter(p => !knownSet.has(p.id));
 
-    // New IDs = in incoming but not in known (newest→oldest order)
-    const newIds = incomingLatest.filter(id => !knownSet.has(id));
-
-    if (!newIds.length) {
+    if (!newPosts.length) {
       // No new posts — quietly update texts for AI
-      col.texts = data.textSnippets || col.texts;
+      col.texts = incomingLatest.map(p => p.text || '');
       setDot(col, 'ok');
       return;
     }
 
     const atBottom   = isNearBottom(col.feedEl);
-    const numNew     = newIds.length;
+    const numNew = newPosts.length;
 
     // Get current visible cards (oldest first = DOM order)
     const currentCards = Array.from(col.feedEl.querySelectorAll('.post-card'));
@@ -581,13 +579,13 @@ async function refreshCol(col) {
 
     // Step 2: append new cards at bottom (oldest of new batch first, newest last)
     // newIds is newest→oldest, reverse it so we append oldest-new first
-    [...newIds].reverse().forEach(pid => {
-      col.feedEl.appendChild(buildCard(col.channel, pid, true));
+    [...newPosts].reverse().forEach(post => {
+      col.feedEl.appendChild(buildCard(post, true));
     });
 
     // Step 3: update our stored state — keep the newest `limit` IDs
-    col.postIds = incomingLatest.slice(0, limit);
-    col.texts   = data.textSnippets || col.texts;
+    col.posts = incomingLatest.slice(0, limit);
+    col.texts = incomingLatest.map(p => p.text || '');
 
     // Step 4: scroll to reveal new content if user was at bottom
     if (atBottom) setTimeout(() => snapToBottom(col.feedEl), 50);
@@ -645,7 +643,7 @@ function createColumn(cfg) {
   const col = {
     id, channel: cfg.channel, label: cfg.label || cfg.channel,
     el: null, feedEl: null, aiPanel: null,
-    postIds: [], texts: []
+    posts: [], texts: []
   };
   columns.push(col);
 

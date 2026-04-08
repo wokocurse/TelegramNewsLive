@@ -1,21 +1,5 @@
 {
-  "version": 2,
-  "functions": {
-    "api/channel.js": {
-      "maxDuration": 10
-    },
-    "api/summarize.js": {
-      "maxDuration": 15
-    }
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate=120" }
-      ]
-    }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" }
   ]
 }
