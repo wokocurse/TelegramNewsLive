@@ -9,39 +9,31 @@ export default async function handler(req, res) {
 
   try {
     const url = `https://t.me/s/${channel}`;
-    const response = await fetch(url);
-    const html = await response.text();
 
+    // ✅ safer request (prevents Telegram blocking)
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0'
+      }
+    });
+
+    const html = await response.text();
     const $ = cheerio.load(html);
 
     const posts = [];
 
-        // 👍 reactions
-    const reactions = [];
-    $(el).find('.tgme_widget_message_reactions span').each((_, r) => {
-      reactions.push($(r).text().trim());
-    });
-
-    // channel name
-    const channelName = $(el)
-      .find('.tgme_widget_message_owner_name')
-      .text()
-      .trim();
-
-    // avatar
-    const avatar = $(el)
-      .find('.tgme_widget_message_user_photo img')
-      .attr('src');
-
+    // 🔥 MAIN LOOP (fixed)
     $('.tgme_widget_message').each((i, el) => {
       const id = $(el).attr('data-post')?.split('/')[1];
+      if (!id) return;
 
+      // 📝 TEXT
       const text = $(el)
         .find('.tgme_widget_message_text')
         .text()
         .trim();
 
-      // 🖼 MULTIPLE IMAGES
+      // 🖼 IMAGES (multi-image support)
       const images = [];
       $(el).find('.tgme_widget_message_photo_wrap').each((_, imgEl) => {
         const style = $(imgEl).attr('style');
@@ -60,27 +52,42 @@ export default async function handler(req, res) {
         .find('time')
         .attr('datetime');
 
-      if (id) {
-        posts.push({
-          id: Number(id),
-          text,
-          images,
-          views,
-          date,
-          reactions,
-          channelName,
-          avatar,
-          link: `https://t.me/${channel}/${id}`
-        });
-      }
+      // 👍 REACTIONS
+      const reactions = [];
+      $(el).find('.tgme_widget_message_reactions span').each((_, r) => {
+        reactions.push($(r).text().trim());
+      });
+
+      // 🧑 CHANNEL NAME
+      const channelName = $(el)
+        .find('.tgme_widget_message_owner_name')
+        .text()
+        .trim();
+
+      // 🖼 AVATAR
+      const avatar = $(el)
+        .find('.tgme_widget_message_user_photo img')
+        .attr('src');
+
+      posts.push({
+        id: Number(id),
+        text,
+        images,
+        views,
+        date,
+        reactions,
+        channelName,
+        avatar,
+        link: `https://t.me/${channel}/${id}`
+      });
     });
 
-    res.json({
+    return res.status(200).json({
       posts: posts.slice(0, Number(limit))
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch channel' });
+    console.error('Channel fetch error:', err);
+    return res.status(500).json({ error: 'Failed to fetch channel' });
   }
 }
