@@ -16,6 +16,23 @@ export default async function handler(req, res) {
 
     const posts = [];
 
+        // 👍 reactions
+    const reactions = [];
+    $(el).find('.tgme_widget_message_reactions span').each((_, r) => {
+      reactions.push($(r).text().trim());
+    });
+
+    // channel name
+    const channelName = $(el)
+      .find('.tgme_widget_message_owner_name')
+      .text()
+      .trim();
+
+    // avatar
+    const avatar = $(el)
+      .find('.tgme_widget_message_user_photo img')
+      .attr('src');
+
     $('.tgme_widget_message').each((i, el) => {
       const id = $(el).attr('data-post')?.split('/')[1];
 
@@ -50,6 +67,9 @@ export default async function handler(req, res) {
           images,
           views,
           date,
+          reactions,
+          channelName,
+          avatar,
           link: `https://t.me/${channel}/${id}`
         });
       }
