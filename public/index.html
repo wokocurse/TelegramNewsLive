@@ -38,17 +38,19 @@
     }
 
     /* Background layer — sits behind everything */
-    #bg-layer {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      /* default dark gradient — replaced when user sets a background */
-      background-image: linear-gradient(135deg, #0d0d1a 0%, #0a0a0a 50%, #0d1a0d 100%);
-      transition: background-image 0.4s;
-    }
+#bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* ✅ DEFAULT IMAGE */
+  background-image: url('/bg.png');
+
+  transition: background-image 0.4s;
+}
     /* optional blur overlay to keep text readable on busy backgrounds */
     #bg-layer::after {
       content: '';
@@ -463,7 +465,7 @@
     <option value="25">25%</option>
   </select>
   <!-- Background picker -->
-  <button class="btn" id="bg-btn" title="Set background image">🖼 BG</button>
+  <button class="btn" id="bg-btn" title="Set background image">Background</button>
   <input type="file" id="bg-file-input" accept="image/*">
   <button class="btn" id="refresh-btn">↻ Refresh</button>
   <button class="btn accent" id="add-col-btn">+ Channel</button>
