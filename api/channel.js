@@ -82,6 +82,9 @@ export default async function handler(req, res) {
       });
     });
 
+    // 🔥 SORT NEWEST → OLDEST (CRITICAL FIX)
+    posts.sort((a, b) => b.id - a.id);
+
     return res.status(200).json({
       posts: posts.slice(0, Number(limit))
     });

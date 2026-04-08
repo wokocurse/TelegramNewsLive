@@ -496,7 +496,7 @@
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 const API_BASE        = '';        // same origin on Vercel
-const REFRESH_MS      = 60_000;    // auto-refresh interval
+const REFRESH_MS      = 5000;    // auto-refresh interval
 const DEFAULT_CHANNELS = [
   { channel: 'topor',    label: 'Топор' },
   { channel: 'cybers',   label: 'КиберТопор' },
@@ -720,29 +720,42 @@ async function refreshCol(col) {
   try {
     const limit = getPostsPerCol();
 
-    const latest = await apiFetch(col.channel, 10);
+    const latest = await apiFetch(col.channel, limit + 5);
     if (!latest.length) return;
 
-    // ✅ ALWAYS TAKE LATEST WINDOW
-    const newWindow = latest.slice(0, limit);
+    const newest = latest[0]; // latest post
 
-    const oldIds = col.posts.map(p => p.id);
-    const newIds = newWindow.map(p => p.id);
-
-    // no change → skip
-    if (JSON.stringify(oldIds) === JSON.stringify(newIds)) {
+    // already have latest → skip
+    if (col.posts.length && col.posts[0].id === newest.id) {
       setDot(col, 'ok');
       return;
     }
 
-    // 🔥 FULL REPLACE (THIS FIXES EVERYTHING)
-    col.posts = newWindow;
+    // find new posts
+    const existingIds = new Set(col.posts.map(p => p.id));
+    const newPosts = latest.filter(p => !existingIds.has(p.id));
 
-    col.feedEl.innerHTML = '';
+    if (!newPosts.length) return;
 
-    newWindow.forEach(post => {
-      col.feedEl.appendChild(buildCard(post, true));
+    // 🔥 ADD NEW POSTS TO TOP (like Telegram)
+    newPosts.reverse().forEach(post => {
+      const el = buildCard(post, true);
+      el.classList.add('entering');
+      col.feedEl.prepend(el);
     });
+
+    // 🔥 REMOVE OLD POSTS FROM BOTTOM
+    while (col.feedEl.children.length > limit) {
+      const last = col.feedEl.lastElementChild;
+      last.classList.add('leaving');
+
+      setTimeout(() => {
+        last.remove();
+      }, 300);
+    }
+
+    // update state
+    col.posts = latest.slice(0, limit);
 
     setDot(col, 'ok');
 
