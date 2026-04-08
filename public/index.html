@@ -462,22 +462,40 @@ async function apiFetch(channel, limit) {
 // No color filters — the white card on a dark background
 // is intentional and matches how Telegram Desktop looks.
 // ─────────────────────────────────────────────────────────────
-function buildCard(post, isNew = false) {
+function buildCard(post, isNew = false, channelName = '') {
   const card = document.createElement('div');
   card.className = 'post-card' + (isNew ? ' is-new' : ' entering');
-  card.dataset.postId = String(post.id);
 
-  const hasContent = post.image || post.text;
+  const imagesHtml = (post.images || []).map(img => `
+    <img src="${img}" class="tg-img"/>
+  `).join('');
 
-  if (!hasContent) {
-    card.innerHTML = `<div class="tg-post">[empty post]</div>`;
-    return card;
-  }
+  const date = post.date
+    ? new Date(post.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
 
   card.innerHTML = `
-    <div class="tg-post">
-      ${post.image ? `<img src="${post.image}" class="tg-img"/>` : ''}
-      ${post.text ? `<div class="tg-text">${post.text}</div>` : ''}
+    <div class="post-inner">
+      <div class="tg-post">
+
+        <!-- HEADER -->
+        <div class="tg-header" onclick="window.open('${post.link}', '_blank')">
+          <span class="tg-channel">${channelName}</span>
+        </div>
+
+        <!-- IMAGES -->
+        ${imagesHtml}
+
+        <!-- TEXT -->
+        ${post.text ? `<div class="tg-text">${post.text}</div>` : ''}
+
+        <!-- FOOTER -->
+        <div class="tg-footer">
+          <span>${date}</span>
+          <span>👁 ${post.views || ''}</span>
+        </div>
+
+      </div>
     </div>
   `;
 
