@@ -521,6 +521,23 @@ document.getElementById('bg-file-input').addEventListener('change', e => {
   bg.style.backgroundSize  = 'cover';
 });
 
+function destroyPost(el) {
+  // убираем анимацию
+  el.classList.remove('entering', 'leaving');
+  // очищаем все картинки
+  el.querySelectorAll('img').forEach(img => {
+    img.src = '';
+  });
+
+  // очищаем background images
+  el.querySelectorAll('[style]').forEach(node => {
+    node.style.backgroundImage = 'none';
+  });
+
+  // удаляем элемент
+  el.remove();
+}
+
 // ─────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────
@@ -562,6 +579,7 @@ async function apiFetch(channel, limit) {
 function buildCard(post, isNew = false) {
   const card = document.createElement('div');
   card.className = 'post-card tg-msg' + (isNew ? ' is-new' : '');
+  card.dataset.id = post.id;
 
   const date = post.date
     ? new Date(post.date).toLocaleTimeString([], {
@@ -605,7 +623,7 @@ function renderMedia(images = []) {
 
   // 1 image → full
   if (images.length === 1) {
-    return `<img src="${images[0]}" class="tg-img-single"/>`;
+    return `<img src="${images[0]}" loading="lazy" class="tg-img-single"/>`;
   }
 
   // multiple images → telegram style
@@ -613,11 +631,11 @@ function renderMedia(images = []) {
 
   return `
     <div class="tg-media">
-      <img src="${first}" class="tg-img-main"/>
+      <img src="${first}" loading="lazy" class="tg-img-main"/>
 
       <div class="tg-img-grid">
         ${rest.slice(0, 3).map(img => `
-          <img src="${img}" class="tg-img-small"/>
+          <img src="${img}" loading="lazy" class="tg-img-small"/>
         `).join('')}
       </div>
     </div>
@@ -720,13 +738,14 @@ async function refreshCol(col) {
   try {
     const limit = getPostsPerCol();
 
-    const latest = await apiFetch(col.channel, limit + 5);
+    const latest = await apiFetch(col.channel, limit + 2);
     if (!latest.length) return;
 
     const newest = latest[0]; // latest post
 
     // already have latest → skip
-    if (col.posts.length && col.posts[0].id === newest.id) {
+    const currentMaxId = Math.max(...col.posts.map(p => p.id));
+    if (currentMaxId === newest.id) {
       setDot(col, 'ok');
       return;
     }
@@ -739,7 +758,13 @@ async function refreshCol(col) {
 
     // 🔥 ADD NEW POSTS TO TOP (like Telegram)
     newPosts.reverse().forEach(post => {
+
+      // ❗ если уже есть — НЕ добавляем
+      if (col.feedEl.querySelector(`[data-id="${post.id}"]`)) return;
+
       const el = buildCard(post, true);
+      el.dataset.id = post.id;
+
       el.classList.add('entering');
       col.feedEl.prepend(el);
     });
@@ -749,9 +774,7 @@ async function refreshCol(col) {
       const last = col.feedEl.lastElementChild;
       last.classList.add('leaving');
 
-      setTimeout(() => {
-        last.remove();
-      }, 300);
+      destroyPost(last);
     }
 
     // update state
