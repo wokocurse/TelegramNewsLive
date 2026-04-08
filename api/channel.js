@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 
 export default async function handler(req, res) {
@@ -10,7 +9,8 @@ export default async function handler(req, res) {
 
   try {
     const url = `https://t.me/s/${channel}`;
-    const html = await fetch(url).then(r => r.text());
+    const response = await fetch(url);
+    const html = await response.text();
 
     const $ = cheerio.load(html);
 
