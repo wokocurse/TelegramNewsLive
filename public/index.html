@@ -496,7 +496,7 @@
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 const API_BASE        = '';        // same origin on Vercel
-const REFRESH_MS      = 5000;    // auto-refresh interval
+const REFRESH_MS      = 40000;    // auto-refresh interval
 const DEFAULT_CHANNELS = [
   { channel: 'topor',    label: 'Топор' },
   { channel: 'cybers',   label: 'КиберТопор' },
@@ -678,7 +678,7 @@ async function loadPosts(col) {
   try {
     const limit = getPostsPerCol();
 
-    const posts = await apiFetch(col.channel, 10); // fetch extra safety buffer
+    const posts = await apiFetch(col.channel, 5); // fetch extra safety buffer
 
     if (!posts.length) {
       col.feedEl.innerHTML = `<div class="post-loading">No posts</div>`;
