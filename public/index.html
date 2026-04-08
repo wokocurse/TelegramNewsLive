@@ -706,6 +706,7 @@ async function loadPosts(col) {
 
     // ✅ ALWAYS TAKE LATEST 3
     col.posts = posts.slice(0, limit);
+    col.texts = col.posts.map(p => p.text).filter(Boolean);
 
     col.feedEl.innerHTML = '';
 
@@ -779,6 +780,7 @@ async function refreshCol(col) {
 
     // update state
     col.posts = latest.slice(0, limit);
+    col.texts = col.posts.map(p => p.text).filter(Boolean);
 
     setDot(col, 'ok');
 
